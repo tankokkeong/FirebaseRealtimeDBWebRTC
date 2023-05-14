@@ -2,15 +2,23 @@ import './style.css';
 
 import firebase from 'firebase/app';
 import 'firebase/firestore';
+import "firebase/database";
 
 const firebaseConfig = {
-  // your config
+  apiKey: "AIzaSyChopx9y6BEpX8DAgdazkspY0UQIpgt25U",
+  authDomain: "project-tutorial-81e1e.firebaseapp.com",
+  databaseURL: "https://project-tutorial-81e1e-default-rtdb.firebaseio.com",
+  projectId: "project-tutorial-81e1e",
+  storageBucket: "project-tutorial-81e1e.appspot.com",
+  messagingSenderId: "365854307866",
+  appId: "1:365854307866:web:7b697e47640e1b83e883a3"
 };
 
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 const firestore = firebase.firestore();
+const database = firebase.database();
 
 const servers = {
   iceServers: [
@@ -64,15 +72,21 @@ webcamButton.onclick = async () => {
 // 2. Create an offer
 callButton.onclick = async () => {
   // Reference Firestore collections for signaling
-  const callDoc = firestore.collection('calls').doc();
-  const offerCandidates = callDoc.collection('offerCandidates');
-  const answerCandidates = callDoc.collection('answerCandidates');
+  const callID = crypto.randomUUID()
 
-  callInput.value = callDoc.id;
+  callInput.value = callID;
 
   // Get candidates for caller, save to db
   pc.onicecandidate = (event) => {
-    event.candidate && offerCandidates.add(event.candidate.toJSON());
+    const result = event.candidate.toJSON();
+    
+    event.candidate && database.ref(`calls/${callID}/offerCandidates/${crypto.randomUUID()}`).set({
+      candidate: result.candidate, 
+      sdpMid: result.sdpMid, 
+      sdpMLineIndex: result.sdpMLineIndex, 
+      usernameFragment: result.usernameFragment
+    });
+    // console.log("candidate for caller", result.candidate)
   };
 
   // Create offer
@@ -84,11 +98,13 @@ callButton.onclick = async () => {
     type: offerDescription.type,
   };
 
-  await callDoc.set({ offer });
+  var updates = {};
+  updates[`calls/${callID}/offer`] = offer;
+  database.ref().update(updates);
 
   // Listen for remote answer
-  callDoc.onSnapshot((snapshot) => {
-    const data = snapshot.data();
+  database.ref(`calls/${callID}`).on('value', (snapshot) => {
+    const data = snapshot.val();
     if (!pc.currentRemoteDescription && data?.answer) {
       const answerDescription = new RTCSessionDescription(data.answer);
       pc.setRemoteDescription(answerDescription);
@@ -96,12 +112,12 @@ callButton.onclick = async () => {
   });
 
   // When answered, add candidate to peer connection
-  answerCandidates.onSnapshot((snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      if (change.type === 'added') {
-        const candidate = new RTCIceCandidate(change.doc.data());
-        pc.addIceCandidate(candidate);
-      }
+  database.ref(`calls/${callID}/answerCandidates`).on('value', (snapshot) => {
+    snapshot.forEach((change) => {
+      console.log("Change type from answer candidates:", change.val());
+      const candidate = new RTCIceCandidate(change.val());
+      pc.addIceCandidate(candidate);
+      
     });
   });
 
@@ -111,15 +127,30 @@ callButton.onclick = async () => {
 // 3. Answer the call with the unique ID
 answerButton.onclick = async () => {
   const callId = callInput.value;
-  const callDoc = firestore.collection('calls').doc(callId);
-  const answerCandidates = callDoc.collection('answerCandidates');
-  const offerCandidates = callDoc.collection('offerCandidates');
 
   pc.onicecandidate = (event) => {
-    event.candidate && answerCandidates.add(event.candidate.toJSON());
+    const result = event.candidate.toJSON();
+    event.candidate && database.ref(`calls/${callId}/answerCandidates/${crypto.randomUUID()}`).set({
+      candidate: result.candidate, 
+      sdpMid: result.sdpMid, 
+      sdpMLineIndex: result.sdpMLineIndex, 
+      usernameFragment: result.usernameFragment
+    });
   };
 
-  const callData = (await callDoc.get()).data();
+  var callData;
+
+  await database.ref().child("calls").child(callId).get().then((snapshot) => {
+    if (snapshot.exists()) {
+      callData = snapshot.val();
+      console.log("Call Data2: ", callData);
+    } else {
+      console.log("No data available");
+    }
+  }).catch((error) => {
+    console.error(error);
+  });
+  
 
   const offerDescription = callData.offer;
   await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
@@ -132,15 +163,15 @@ answerButton.onclick = async () => {
     sdp: answerDescription.sdp,
   };
 
-  await callDoc.update({ answer });
+  var updates = {};
+  updates[`calls/${callId}/answer`] = answer;
+  database.ref().update(updates);
 
-  offerCandidates.onSnapshot((snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      console.log(change);
-      if (change.type === 'added') {
-        let data = change.doc.data();
-        pc.addIceCandidate(new RTCIceCandidate(data));
-      }
+  database.ref(`calls/${callId}/offerCandidates`).on('value', (snapshot) => {
+    snapshot.forEach((change) => {
+      console.log("Change type from offer candidates:", change.val());
+      let data = change.val();
+      pc.addIceCandidate(new RTCIceCandidate(data));
     });
   });
 };
