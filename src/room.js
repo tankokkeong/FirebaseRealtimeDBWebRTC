@@ -1,8 +1,5 @@
-import './style.css';
-
-import firebase from 'firebase/app';
-import 'firebase/firestore';
-import "firebase/database";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, set, update, onValue, child, get } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyChopx9y6BEpX8DAgdazkspY0UQIpgt25U",
@@ -14,11 +11,10 @@ const firebaseConfig = {
   appId: "1:365854307866:web:7b697e47640e1b83e883a3"
 };
 
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const firestore = firebase.firestore();
-const database = firebase.database();
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+const database = getDatabase(app);
 
 const servers = {
   iceServers: [
@@ -80,7 +76,7 @@ callButton.onclick = async () => {
   pc.onicecandidate = (event) => {
     const result = event.candidate.toJSON();
     
-    event.candidate && database.ref(`calls/${callID}/offerCandidates/${crypto.randomUUID()}`).set({
+    event.candidate && set(ref(database, `calls/${callID}/offerCandidates/${crypto.randomUUID()}`), {
       candidate: result.candidate, 
       sdpMid: result.sdpMid, 
       sdpMLineIndex: result.sdpMLineIndex, 
@@ -100,10 +96,10 @@ callButton.onclick = async () => {
 
   var updates = {};
   updates[`calls/${callID}/offer`] = offer;
-  database.ref().update(updates);
+  update(ref(database), updates);
 
   // Listen for remote answer
-  database.ref(`calls/${callID}`).on('value', (snapshot) => {
+  onValue(ref(database, `calls/${callID}`), (snapshot) => {
     const data = snapshot.val();
     if (!pc.currentRemoteDescription && data?.answer) {
       const answerDescription = new RTCSessionDescription(data.answer);
@@ -112,7 +108,7 @@ callButton.onclick = async () => {
   });
 
   // When answered, add candidate to peer connection
-  database.ref(`calls/${callID}/answerCandidates`).on('value', (snapshot) => {
+  onValue(ref(database,`calls/${callID}/answerCandidates`), (snapshot) => {
     snapshot.forEach((change) => {
       console.log("Change type from answer candidates:", change.val());
       const candidate = new RTCIceCandidate(change.val());
@@ -130,7 +126,7 @@ answerButton.onclick = async () => {
 
   pc.onicecandidate = (event) => {
     const result = event.candidate.toJSON();
-    event.candidate && database.ref(`calls/${callId}/answerCandidates/${crypto.randomUUID()}`).set({
+    event.candidate && set(ref(database, `calls/${callId}/answerCandidates/${crypto.randomUUID()}`), {
       candidate: result.candidate, 
       sdpMid: result.sdpMid, 
       sdpMLineIndex: result.sdpMLineIndex, 
@@ -140,7 +136,7 @@ answerButton.onclick = async () => {
 
   var callData;
 
-  await database.ref().child("calls").child(callId).get().then((snapshot) => {
+  await get(child(ref(database), `calls/${callId}`)).then((snapshot) => {
     if (snapshot.exists()) {
       callData = snapshot.val();
       console.log("Call Data2: ", callData);
@@ -165,9 +161,9 @@ answerButton.onclick = async () => {
 
   var updates = {};
   updates[`calls/${callId}/answer`] = answer;
-  database.ref().update(updates);
+  update(ref(database), updates);
 
-  database.ref(`calls/${callId}/offerCandidates`).on('value', (snapshot) => {
+  onValue(ref(database,`calls/${callId}/offerCandidates`), (snapshot) => {
     snapshot.forEach((change) => {
       console.log("Change type from offer candidates:", change.val());
       let data = change.val();
