@@ -28,3 +28,26 @@ export const getCookie = (cname) => {
     }
     return "";
 }
+
+export const getFormattedTime = () => {
+    // Get Current Timestamp
+    var date = new Date();
+
+    // Get hour and minute
+    var hour = date.getHours();
+	var minute= date.getMinutes();
+
+    var formattedTime = checkTime(hour) + ":" + checkTime(minute);
+
+    return formattedTime;
+}
+
+function checkTime(i)
+{
+	if(i<10)
+	{
+		i="0"+i;
+	}
+	
+	return i;
+}
