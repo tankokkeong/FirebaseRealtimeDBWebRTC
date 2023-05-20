@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, update, onValue, child, get } from "firebase/database";
+import { getDatabase, ref, set, update, onValue, child, get, onDisconnect, remove } from "firebase/database";
 import { getCookie, route, getFormattedTime } from "../dist/script/module-helper";
 
 const firebaseConfig = {
@@ -75,19 +75,6 @@ webcamButton.onclick = async () => {
   remoteVideo.srcObject = remoteStream;
   webcamButton.disabled = true;
 
-  // Get candidates for caller, save to db
-  pc.onicecandidate = (event) => {
-    const result = event.candidate.toJSON();
-    
-    event.candidate && set(ref(database, `calls/${callID}/offerCandidates/${userID}/${crypto.randomUUID()}`), {
-      candidate: result.candidate, 
-      sdpMid: result.sdpMid, 
-      sdpMLineIndex: result.sdpMLineIndex, 
-      usernameFragment: result.usernameFragment
-    });
-    // console.log("candidate for caller", result.candidate)
-  };
-
   // Create offer
   const offerDescription = await pc.createOffer();
   await pc.setLocalDescription(offerDescription);
@@ -98,31 +85,37 @@ webcamButton.onclick = async () => {
   };
 
   var updates = {};
+  //User joins room
   updates[`calls/${callID}/${userID}`] = {joinedAt: getFormattedTime()};
-  updates[`Users/${userID}/${callID}`] = offer;
   update(ref(database), updates);
 
+  //If disconnected
+  onDisconnect(ref(database, `calls/${callID}/${userID}`)).remove();
+
   // Listen for remote answer
-  onValue(ref(database, `calls/${callID}/answer`), (snapshot) => {
+  onValue(ref(database, `calls/${callID}/`), (snapshot) => {
 
-    snapshot.forEach((childSnap) => {
-      const data = childSnap.val();
-      if (!pc.currentRemoteDescription && data?.answer) {
-        const answerDescription = new RTCSessionDescription(data.answer);
-        pc.setRemoteDescription(answerDescription);
-      }
-    });
+    console.log("Snap", snapshot)
+    if(snapshot.size > 1){
+      snapshot.forEach((childSnap) => {
+          if(childSnap.key != userID){
+            // Get candidates for caller, save to db
+            pc.onicecandidate = (event) => {
+              const result = event.candidate.toJSON();
+              
+              event.candidate && set(ref(database, `calls/${callID}/${userID}/${childSnap.key}/offerCandidates/${crypto.randomUUID()}`), {
+                candidate: result.candidate, 
+                sdpMid: result.sdpMid, 
+                sdpMLineIndex: result.sdpMLineIndex, 
+                usernameFragment: result.usernameFragment
+              });
+              // console.log("candidate for caller", result.candidate)
+            };
+          }
+      });
+    }
+    
 
-  });
-
-  // When answered, add candidate to peer connection
-  onValue(ref(database,`calls/${callID}/answerCandidates`), (snapshot) => {
-    snapshot.forEach((change) => {
-      console.log("Change type from answer candidates:", change.val());
-      const candidate = new RTCIceCandidate(change.val());
-      pc.addIceCandidate(candidate);
-      
-    });
   });
 
   console.log("PC", pc);
