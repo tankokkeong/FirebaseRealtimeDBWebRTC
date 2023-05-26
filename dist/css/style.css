@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne+Mono&display=swap');
 
 body {
   font-family: 'Syne Mono', monospace;
@@ -9,17 +8,11 @@ body {
   margin: 80px 10px;
 }
 
-video {
-  width: 40vw;
-  height: 30vw;
-  margin: 2rem;
+.video-container{
   background: #2c3e50;
-}
-
-.videos {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  max-width: 300px!important;
+  height: 200px;
+  margin: 5px;
 }
 
 #content-container{
@@ -28,4 +21,8 @@ video {
 
 #room-table{
   border: 1px solid black!important;
+}
+
+.row{
+  margin: 0!important;
 }

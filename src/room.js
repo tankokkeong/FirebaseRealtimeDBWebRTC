@@ -32,8 +32,8 @@ let remoteStream = null;
 
 // HTML elements
 const webcamButton = document.getElementById('webcamButton');
-const webcamVideo = document.getElementById('webcamVideo');
-const remoteVideo = document.getElementById('remoteVideo');
+const myVideo = document.getElementById('my-video');
+const videoList = document.getElementById("video-list-display");
 
 //IDs
 const callID = getUrlParams("room");
@@ -52,7 +52,7 @@ if(getUrlParams("room") != null){
     get(child(ref(database), `calls/${callID}`)).then((snapshot) => {
       if (!snapshot.exists()) {
         var updates = {};
-        //User joins room
+        //create call if there is none
         updates[`calls/${callID}/`] = {
           createdAt: getFormattedTime(),
           offer: "",
@@ -78,7 +78,12 @@ if(getUrlParams("room") != null){
   //Generate webcam
   onValue(ref(database, `rooms/${callID}/`), (snapshot) => {
     snapshot.forEach((childSnap) => {
-      
+      if(childSnap.key != userID){
+        videoList.innerHTML +=
+        `<div class="video-container col" id="${childSnap.key}-video-container">
+          <video autoplay playsinline id="${childSnap.key}-video"></video>
+        </div>`;
+      }
     });
   });
 }
