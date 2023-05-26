@@ -71,146 +71,20 @@ if(getUrlParams("room") != null){
   //User joins room
   updates[`rooms/${callID}/${userID}`] = {joinedAt: getFormattedTime()};
   update(ref(database), updates);
+
+  //If disconnected
+  onDisconnect(ref(database, `rooms/${callID}/${userID}`)).remove();
+
+  //Generate webcam
+  onValue(ref(database, `rooms/${callID}/`), (snapshot) => {
+    snapshot.forEach((childSnap) => {
+      
+    });
+  });
 }
 else{
   route("index");
 }
-
-// 1. Setup media sources
-
-webcamButton.onclick = async () => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  remoteStream = new MediaStream();
-
-  // Push tracks from local stream to peer connection
-  localStream.getTracks().forEach((track) => {
-    pc.addTrack(track, localStream);
-  });
-
-  // Pull tracks from remote stream, add to video stream
-  pc.ontrack = (event) => {
-    event.streams[0].getTracks().forEach((track) => {
-      remoteStream.addTrack(track);
-    });
-  };
-
-  webcamVideo.srcObject = localStream;
-  remoteVideo.srcObject = remoteStream;
-  webcamButton.disabled = true;
-
-  // Create offer
-  const offerDescription = await pc.createOffer();
-  await pc.setLocalDescription(offerDescription);
-
-  const offer = {
-    sdp: offerDescription.sdp,
-    type: offerDescription.type,
-  };
-
-  var updates = {};
-  //User joins room
-  updates[`calls/${callID}/${userID}`] = {joinedAt: getFormattedTime()};
-  update(ref(database), updates);
-
-  //If disconnected
-  onDisconnect(ref(database, `calls/${callID}/${userID}`)).remove();
-
-  // Listen for remote answer
-  onValue(ref(database, `calls/${callID}/`), (snapshot) => {
-
-    console.log("Snap", snapshot)
-    if(snapshot.size > 1){
-      snapshot.forEach((childSnap) => {
-          if(childSnap.key != userID){
-            // Get candidates for caller, save to db
-            pc.onicecandidate = (event) => {
-              const result = event.candidate.toJSON();
-              
-              event.candidate && set(ref(database, `calls/${callID}/${userID}/${childSnap.key}/offerCandidates/${crypto.randomUUID()}`), {
-                candidate: result.candidate, 
-                sdpMid: result.sdpMid, 
-                sdpMLineIndex: result.sdpMLineIndex, 
-                usernameFragment: result.usernameFragment
-              });
-              // console.log("candidate for caller", result.candidate)
-            };
-          }
-      });
-    }
-    
-
-  });
-
-  console.log("PC", pc);
-};
-
-
-
-
-
-// // 2. Create an offer
-// callButton.onclick = async () => {
-//   // Reference Firestore collections for signaling
-//   const callID = crypto.randomUUID()
-
-//   callInput.value = callID;
-
-  
-
-//   hangupButton.disabled = false;
-// };
-
-// // 3. Answer the call with the unique ID
-// answerButton.onclick = async () => {
-//   const callId = callInput.value;
-
-//   pc.onicecandidate = (event) => {
-//     const result = event.candidate.toJSON();
-//     event.candidate && set(ref(database, `calls/${callId}/answerCandidates/${crypto.randomUUID()}`), {
-//       candidate: result.candidate, 
-//       sdpMid: result.sdpMid, 
-//       sdpMLineIndex: result.sdpMLineIndex, 
-//       usernameFragment: result.usernameFragment
-//     });
-//   };
-
-//   var callData;
-
-//   await get(child(ref(database), `calls/${callId}`)).then((snapshot) => {
-//     if (snapshot.exists()) {
-//       callData = snapshot.val();
-//       console.log("Call Data2: ", callData);
-//     } else {
-//       console.log("No data available");
-//     }
-//   }).catch((error) => {
-//     console.error(error);
-//   });
-  
-
-//   const offerDescription = callData.offer;
-//   await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
-
-//   const answerDescription = await pc.createAnswer();
-//   await pc.setLocalDescription(answerDescription);
-
-//   const answer = {
-//     type: answerDescription.type,
-//     sdp: answerDescription.sdp,
-//   };
-
-//   var updates = {};
-//   updates[`calls/${callId}/answer`] = answer;
-//   update(ref(database), updates);
-
-//   onValue(ref(database,`calls/${callId}/offerCandidates`), (snapshot) => {
-//     snapshot.forEach((change) => {
-//       console.log("Change type from offer candidates:", change.val());
-//       let data = change.val();
-//       pc.addIceCandidate(new RTCIceCandidate(data));
-//     });
-//   });
-// };
 
 function getUrlParams(paramName){
   const queryString = window.location.search;
