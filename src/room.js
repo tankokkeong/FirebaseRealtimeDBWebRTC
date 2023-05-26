@@ -47,7 +47,30 @@ if(getUrlParams("room") != null){
   if(callID.length != 36){
     route("index");
   }
+  else{
+    //Check call exists
+    get(child(ref(database), `calls/${callID}`)).then((snapshot) => {
+      if (!snapshot.exists()) {
+        var updates = {};
+        //User joins room
+        updates[`calls/${callID}/`] = {
+          createdAt: getFormattedTime(),
+          offer: "",
+          offerCandidates: "",
+          answer: "",
+          answerCandidates: ""
+        };
+        update(ref(database), updates);
+      }
+    }).catch((error) => {
+      console.error(error);
+    });
+  }
 
+  var updates = {};
+  //User joins room
+  updates[`rooms/${callID}/${userID}`] = {joinedAt: getFormattedTime()};
+  update(ref(database), updates);
 }
 else{
   route("index");
