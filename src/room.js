@@ -32,7 +32,6 @@ let remoteStream = null;
 
 // HTML elements
 const webcamButton = document.getElementById('webcamButton');
-const myVideo = document.getElementById('my-video');
 const videoList = document.getElementById("video-list-display");
 
 //IDs
@@ -77,19 +76,45 @@ if(getUrlParams("room") != null){
 
   //Generate webcam
   onValue(ref(database, `rooms/${callID}/`), (snapshot) => {
+
+    //Empty the previous input
+    videoList.innerHTML = "";
+
     snapshot.forEach((childSnap) => {
-      if(childSnap.key != userID){
-        videoList.innerHTML +=
-        `<div class="video-container col" id="${childSnap.key}-video-container">
-          <video autoplay playsinline id="${childSnap.key}-video"></video>
-        </div>`;
-      }
+      videoList.innerHTML +=
+      `<div class="video-container" id="${childSnap.key}-video-container">
+        <video autoplay playsinline id="${childSnap.key}-video" class="user-video"></video>
+      </div>`;
+      
     });
   });
 }
 else{
   route("index");
 }
+
+webcamButton.addEventListener("click", async () => {
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  remoteStream = new MediaStream();
+
+  // Push tracks from local stream to peer connection
+  localStream.getTracks().forEach((track) => {
+    pc.addTrack(track, localStream);
+  });
+
+  // Pull tracks from remote stream, add to video stream
+  pc.ontrack = (event) => {
+    event.streams[0].getTracks().forEach((track) => {
+      remoteStream.addTrack(track);
+    });
+  };
+
+  const myVideo = document.getElementById(`${userID}-video`);
+
+  myVideo.srcObject = localStream;
+  remoteVideo.srcObject = remoteStream;
+
+});
 
 function getUrlParams(paramName){
   const queryString = window.location.search;

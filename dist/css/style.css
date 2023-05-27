@@ -15,6 +15,11 @@ body {
   margin: 5px;
 }
 
+.user-video{
+  max-width: 300px!important;
+  height: 200px;
+}
+
 #content-container{
   padding: 80px;
 }
@@ -23,6 +28,15 @@ body {
   border: 1px solid black!important;
 }
 
-.row{
-  margin: 0!important;
+#video-list-display{
+  display: flex;
+  flex-wrap: wrap;
+}
+
+#start-web-cam{
+  position: fixed;
+  bottom: 20px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
